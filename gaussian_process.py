@@ -11,6 +11,8 @@ class GaussianProcessRegressor:
         self.M = input_vector_degree
         self.output_noise_mean = 0
         self.output_noise_variance = 1
+        self.y_vector = None
+        self.N = None
         self.gram_matrix = None
         self.modified_gram_matrix_inv = None
         self.mse_error = None
@@ -31,8 +33,8 @@ class GaussianProcessRegressor:
 
         full_train_set_attrs = pd.concat(full_train_set_attrs, ignore_index=True)
 
-        N = len(full_train_set_attrs)
-        gram_matrix = np.empty(shape=(N, N), dtype=float)
+        self.N = len(full_train_set_attrs)
+        gram_matrix = np.empty(shape=(self.N, self.N), dtype=float)
 
         for i, row_i in full_train_set_attrs.iterrows():
             xi = row_i.values.reshape((self.M, 1))
@@ -67,20 +69,9 @@ class GaussianProcessRegressor:
 
     def posterior_mean_function(self, dataset, new_x):
 
-        y_vector = []
-        for train_set_attrs, train_set_labels in dataset:
-
-            if len(train_set_attrs) != len(train_set_labels):
-                raise ValueError('Count mismatch between attributes and labels')
-
-            y_vector += train_set_labels.ix[:, 0].tolist()
-
-        y_vector = np.array(y_vector, dtype=float)
-        y_vector.reshape((y_vector.shape[0], 1))
-
         k_new_x_with_X = self.compute_kernel_with_dataset(dataset, new_x)
 
-        return np.matmul(k_new_x_with_X, np.matmul(self.modified_gram_matrix_inv, y_vector))[0]
+        return np.matmul(k_new_x_with_X, np.matmul(self.modified_gram_matrix_inv, self.y_vector))[0]
 
     def posterior_covariance_function(self, dataset, new_x):
         k_new_x_with_X = self.compute_kernel_with_dataset(dataset, new_x)
@@ -95,6 +86,17 @@ class GaussianProcessRegressor:
         self.compute_gram_matrix(dataset)
         self.compute_modified_gram_matrix_inv()
 
+        self.y_vector = []
+        for train_set_attrs, train_set_labels in dataset:
+
+            if len(train_set_attrs) != len(train_set_labels):
+                raise ValueError('Count mismatch between attributes and labels')
+
+            self.y_vector += train_set_labels.ix[:, 0].tolist()
+
+        self.y_vector = np.array(self.y_vector, dtype=float)
+        self.y_vector.reshape((self.y_vector.shape[0], 1))
+
         if report_error:
             self.mse_error = self.k_fold_cross_validation(dataset)
             print('Mean Square Error = %.3f ' % self.mse_error)
@@ -107,7 +109,6 @@ class GaussianProcessRegressor:
 
     def predict(self, train_dataset, test_attrs, true_values=None):
 
-        N = len(test_attrs)
         if not true_values.empty:
             if len(test_attrs) != len(true_values):
                 raise ValueError('count mismatch in attributes and labels')
@@ -124,7 +125,7 @@ class GaussianProcessRegressor:
 
         E_MSE = None
         if true_values is not None:
-            E_MSE = error / N
+            E_MSE = error / self.N
 
         predicted_values = pd.DataFrame(np.array(predicted_values))
         return predicted_values, E_MSE
@@ -203,8 +204,7 @@ if __name__ == '__main__':
         './regression-dataset/fLabels1.csv'
     )
     test_x = np.array([7, 14]).reshape((2, 1))
-    model.compute_gram_matrix([(train_attrs, train_labels)])
-    model.compute_modified_gram_matrix_inv()
+    model.learn([(train_attrs, train_labels)])
     result = model.posterior_mean_function([(train_attrs, train_labels)], test_x)
     print('result =', result)
 
@@ -216,8 +216,7 @@ if __name__ == '__main__':
         './regression-dataset/fLabels1.csv'
     )
     test_x = np.array([7, 14]).reshape((2, 1))
-    model.compute_gram_matrix([(train_attrs, train_labels)])
-    model.compute_modified_gram_matrix_inv()
+    model.learn([(train_attrs, train_labels)])
     result = model.posterior_covariance_function([(train_attrs, train_labels)], test_x)
     print('result =', result)
 
@@ -229,8 +228,7 @@ if __name__ == '__main__':
         './regression-dataset/fLabels1.csv'
     )
     test_x = np.array([7, 14]).reshape((2, 1))
-    model.compute_gram_matrix([(train_attrs, train_labels)])
-    model.compute_modified_gram_matrix_inv()
+    model.learn([(train_attrs, train_labels)])
     result = model.predict_point([(train_attrs, train_labels)], test_x)
     print('result =', result)
 
