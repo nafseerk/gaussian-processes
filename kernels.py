@@ -16,7 +16,7 @@ class GaussianKernel:
         self.sigma = sigma
 
     def value(self, x1, x2):
-        return np.exp(-1 / 2.0 * (np.linalg.norm(x1 - x2)) ** 2 / self.sigma ** 2)
+        return np.exp((-1 / 2.0) * (np.linalg.norm(x1 - x2)) ** 2 / self.sigma ** 2)
 
     def name(self):
         return "Gaussian with sigma =", self.sigma
