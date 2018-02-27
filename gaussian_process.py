@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import pprint
 import kernels
+import time as tm
 
 
 class GaussianProcessRegressor:
@@ -16,6 +17,7 @@ class GaussianProcessRegressor:
         self.gram_matrix = None
         self.modified_gram_matrix_inv = None
         self.mse_error = None
+        self.training_time = None
         if kernel is None:
             self.kernel = kernels.IdentityKernel()
         else:
@@ -83,6 +85,9 @@ class GaussianProcessRegressor:
 
     def learn(self, dataset, report_error=False):
 
+        if report_error:
+            start_time = tm.time()
+
         self.compute_gram_matrix(dataset)
         self.compute_modified_gram_matrix_inv()
 
@@ -100,6 +105,9 @@ class GaussianProcessRegressor:
         if report_error:
             self.mse_error = self.k_fold_cross_validation(dataset)
             print('Mean Square Error = %.3f ' % self.mse_error)
+            end_time = tm.time()
+            self.training_time = (int((end_time - start_time) * 100)) / 100
+            print('Training time =', self.training_time, 'seconds')
 
     def predict_point(self, dataset, new_x):
         """
